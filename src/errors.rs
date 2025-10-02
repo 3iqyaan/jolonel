@@ -30,6 +30,9 @@ pub enum TaskError{
     #[error("This function should'nt have been called: {0}")]
     WrongWay(String),
 
+    #[error("Disparity between memory and database: {0}")]
+    Disparity(String),
+
     #[error("Dont know what caused this")]
     Mysterious
 }

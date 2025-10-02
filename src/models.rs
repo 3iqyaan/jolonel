@@ -1,29 +1,29 @@
-use chrono;
-use clap::{Args, ValueEnum};
-use crate::errors::{TaskError, Result};
-use std::cell::RefCell;
-use crate::{TAGS, GOALS};
+use chrono::{self, NaiveDate, NaiveDateTime, NaiveTime};
+use clap::{ValueEnum};
+use crate::errors::{Result};
+
 pub struct Task {
     pub id: u32,
     pub title: String,
     pub priority: Priority,
-    pub due_by: chrono::Duration,
-    pub recurr: Recurrence,
-    pub custom_recurr: chrono::Duration,
+    pub due_by: chrono::NaiveDateTime,
+    pub recur: Recur,
+    pub at_time: chrono::NaiveTime,
+    pub custom_recur: chrono::Duration,
     pub state: State,
     pub goal: String,
     pub tags: String,
 }
 
 pub struct TaskEvents{
-    id: u32,
-    task_id: u32,
-    state: State,
-    timestamp: chrono::NaiveDateTime,
+    pub id: u32,
+    pub task_id: u32,
+    pub state: State,
+    pub timestamp: chrono::NaiveDateTime,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
-pub enum Recurrence{
+pub enum Recur{
     Daily,
     Weekly,
     Monthly,
@@ -38,10 +38,20 @@ pub enum Priority {
     High,
 }
 
+impl Priority{
+    pub fn to_str(&self) -> String{
+            match self{
+            Priority::High => String::from("High"),
+            Priority::Medium => String::from("Medium"),
+            Priority::Low => String::from("Low")
+        }
+    }
+}
+
 #[derive(Clone, Copy, ValueEnum, Debug)]
 pub enum State {
     Pending,
-    Started,
+    Doing,
     Paused,
     Done,
 }
@@ -50,9 +60,10 @@ impl Task{
     pub fn new(
         title: String, 
         priority: Option<Priority>, 
-        due_by: Option<chrono::Duration>, 
-        recurr: Option<Recurrence>,
-        custom_recurr: Option<chrono::Duration>,
+        due_by: Option<chrono::NaiveDateTime>, 
+        recur: Option<Recur>,
+        at_time: Option<NaiveTime>,
+        custom_recur: Option<chrono::Duration>,
         state: Option<State>,
         goal: Option<String>,
         tags: Option<String>,
@@ -61,9 +72,13 @@ impl Task{
         id: 0,
         title,
         priority: priority.unwrap_or(Priority::Low),
-        due_by: due_by.unwrap_or(chrono::Duration::MAX),
-        recurr: recurr.unwrap_or(Recurrence::None),
-        custom_recurr: custom_recurr.unwrap_or(chrono::Duration::zero()),
+        due_by: due_by
+            .unwrap_or(NaiveDateTime::new(
+                NaiveDate::from_ymd_opt(314159, 12, 31).unwrap(),
+                NaiveTime::from_hms_opt(23, 59, 59).unwrap())),
+        recur: recur.unwrap_or(Recur::None),
+        at_time: at_time.unwrap_or(NaiveTime::from_hms_opt(9, 00, 00).unwrap()),
+        custom_recur: custom_recur.unwrap_or(chrono::Duration::zero()),
         state: state.unwrap_or(State::Pending),
         goal : goal.unwrap_or_default(),
         tags : tags.unwrap_or_default(),

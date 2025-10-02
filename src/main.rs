@@ -2,18 +2,21 @@ mod squeal{
     pub mod create_tables;
     pub mod insert_task;
 }
-mod errors;
-mod models;
-mod cli;
 mod commands{
     pub mod cmd_do;
 }
+mod errors;
+mod models;
+mod cli;
+
 
 use clap::Parser;
 use cli::JNEL;
+use rusqlite::Connection;
 use std::{cell::RefCell};
 
-use crate::{commands::cmd_do, errors::TaskError};
+use crate::errors::{Result, TaskError};
+use crate::commands::{cmd_do};
 
 #[allow(dead_code)]
 
@@ -27,30 +30,31 @@ pub mod init{
     use super::{TAGS, GOALS, DATETIMES};
     use rusqlite::Connection;
     use crate::squeal::create_tables;
-    pub fn init(){
-        // Initialize the db connection, load predefined tags and goals and return the connection.
-        let conn = Connection::open("jnel.sqlite").expect("Unable to open DB");    
+    use crate::errors::{TaskError, Result};
+    pub fn init(conn : &Connection) -> Result<()>{
 
-        create_tables::create_tables().expect("Unable to create DB");
-        let mut stmt_tags = conn.prepare("SELECT tag_name FROM tags;").unwrap();
-        let mut stmt_goals = conn.prepare("SELECT goal_name FROM goals;").unwrap();
-        let mut stmt_datetimes = conn.prepare("SELECT shorthand FROM duration_shorthands;").unwrap();
+        // Initialize the db connection, load predefined tags and goals and return the connection. 
 
-        let tags_iter = stmt_tags.query_map([], |row| {
-            Ok(row.get::<_, String>(0)?)
-        }).unwrap();
+        create_tables::create_tables(&conn).expect("Unable to create DB");
+        let mut stmt_tags = conn.prepare("SELECT tag_name FROM tags;")?;
+        let mut stmt_goals = conn.prepare("SELECT goal_name FROM goals;")?;
+        let mut stmt_datetimes = conn.prepare("SELECT shorthand FROM duration_shorthands;")?;
 
-        let goals_iter = stmt_goals.query_map([], |row| {
-            Ok(row.get::<_, String>(0)?)
-        }).unwrap();
+        let tags_names: Vec<String> = stmt_tags
+            .query_map([], |row| Ok(row.get::<_, String>(0)?))? 
+            .map(|r| r.map_err(TaskError::from))              
+            .collect::<Result<Vec<_>>>()?;                 
 
-        let datetimes_iter = stmt_datetimes.query_map([], |row| {
-            Ok(row.get::<_, String>(0)?)
-        }).unwrap();
+        let goals_names: Vec<String> = stmt_goals
+            .query_map([], |row| Ok(row.get::<_, String>(0)?))? 
+            .map(|r| r.map_err(TaskError::from))              
+            .collect::<Result<Vec<_>>>()?;                 
 
-        let tags_names: Vec<String> = tags_iter.filter_map(Result::ok).collect();
-        let goals_names: Vec<String> = goals_iter.filter_map(Result::ok).collect();
-        let datetimes_names: Vec<String> = datetimes_iter.filter_map(Result::ok).collect();
+        let datetimes_names: Vec<String> = stmt_datetimes
+            .query_map([], |row| Ok(row.get::<_, String>(0)?))? 
+            .map(|r| r.map_err(TaskError::from))              
+            .collect::<Result<Vec<_>>>()?;                 
+
 
         TAGS.with(|tags| {
             tags.borrow_mut().extend(tags_names);
@@ -63,18 +67,20 @@ pub mod init{
         DATETIMES.with(|dts| {
             dts.borrow_mut().extend(datetimes_names);
         });
+        Ok(())
     }
 }
 
-fn main() {
+fn main() -> Result<()> {
+    let conn = Connection::open("jnel.sqlite")?;
 
     let args = JNEL::parse();
-    init::init();
+    init::init(&conn);
 
-    let result = match args.clone().mode {
+    match args.clone().mode {
         cli::Mode::Do(cmd) =>{
             match cmd {
-                cli::DoCmd::New{..}=> cmd_do::do_new(args),
+                cli::DoCmd::New{..}=> cmd_do::do_new(&conn, args),
             }
         }
         _ => Err(TaskError::Mysterious),
@@ -85,4 +91,5 @@ fn main() {
     // create::init_to_db(task, conn);
 
     println!("holy");
+    Ok(())
 }

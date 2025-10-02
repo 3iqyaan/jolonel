@@ -14,9 +14,10 @@ CREATE TABLE IF NOT EXISTS tasks (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     title         TEXT NOT NULL,
     priority      TEXT,
-    due_by      TEXT,
-    recurrence    TEXT, -- "Daily", "Weekly", etc. or NULL
-    state         TEXT NOT NULL -- "NotStarted", "Started", "Paused", "Resumed", "Completed"
+    due_by        INTEGER, -- DateTime as "YYYY-MM-DD HH:MM:SS" or NULL
+    created_at    INTEGER NOT NULL, -- DateTime as "YYYY-MM-DD HH:MM:SS"
+    recurrence    INTEGER, -- Recurrence in seconds or NULL
+    state         TEXT NOT NULL -- "Pending", "Doing", "Paused", "Completed"
 );
 
 ALTER TABLE tasks ADD COLUMN goal_id INTEGER
@@ -33,7 +34,7 @@ CREATE TABLE IF NOT EXISTS task_tags (
 CREATE TABLE task_events (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     task_id   INTEGER NOT NULL,
-    state     TEXT NOT NULL, -- "NotStarted", "Started", "Paused", "Resumed", "Completed"
+    state     TEXT NOT NULL, -- "Pending", "Doing", "Paused", "Completed"
     timestamp TEXT NOT NULL,
 
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE

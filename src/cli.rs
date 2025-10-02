@@ -1,6 +1,6 @@
-use clap::{builder::Str, ArgGroup, Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 
-use crate::models::{Recurrence, Priority, State};
+use crate::models::{Recur, Priority, State};
 
 #[derive(Parser, Debug, Clone)]
 #[command(name = "Jolonel", version = "1.0", author = "3iqyaan", about = "Use me to track your progress on your Goals",
@@ -45,8 +45,8 @@ pub(crate) enum DoCmd {
         #[command(flatten)]
         due: Option<DueArgs>,
         
-        #[arg(short, long)]
-        recurr: Option<Recurrence>,
+        #[command(flatten)]
+        recur: Option<Recurrence>,
 
         #[arg(short, long)]
         state: Option<State>,
@@ -67,8 +67,14 @@ pub(crate) enum DoCmd {
     */
 }
 
+#[derive(Debug, Clone, Copy, Args)]
+pub struct Recurrence{
+    pub recur: Option<Recur>,
+    pub at_time: Option<chrono::NaiveTime>
+}
+
 #[derive(Args, Debug, Clone, PartialEq, Eq)]
-#[group(required = false, multiple = false, args = ["due_by", "due_date"])]
+#[group(required = false, multiple = false, args = ["due_short", "due_datetime"])]
 pub(crate) struct DueArgs {
 
     #[arg(short, long)]
