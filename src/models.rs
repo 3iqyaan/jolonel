@@ -1,3 +1,5 @@
+use std::future::Pending;
+
 use chrono::{self, NaiveDate, NaiveDateTime, NaiveTime};
 use clap::{ValueEnum};
 use crate::errors::{Result};
@@ -53,7 +55,18 @@ pub enum State {
     Pending,
     Doing,
     Paused,
-    Done,
+    Completed,
+}
+
+impl State{
+    pub fn to_str(&self) -> String{
+        match self{
+            State::Pending => String::from("Pending"),
+            State::Doing => String::from("Doing"),
+            State::Paused => String::from("Paused"),
+            State::Completed => String::from("Completed")
+        }
+    }
 }
 
 impl Task{
