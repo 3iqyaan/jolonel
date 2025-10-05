@@ -1,16 +1,13 @@
-use crate::models::{Recur, Task, State};
+use crate::model_squeal::new_task::{goal_in, tag_in};
+use crate::models::{Recur, Task};
 use crate::errors::{Result, TaskError};
 use crate::{cli, GOALS, TAGS};
-use chrono::{Duration, Local, NaiveDateTime, NaiveTime, Utc};
-use sqlx::PgPool;
-use crate::model_squeal::{insert_task};
+use chrono::{Duration, Local, NaiveDateTime, NaiveTime};
+use sqlx::{Postgres, Transaction};
+use crate::model_squeal::{new_task};
 use crate::DATETIMES;
-use crate::init::{refresh_dts, refresh_goals, refresh_tags};
-use std::ops::Add;
-use std::collections::HashMap;
-use std::sync::PoisonError;
 
-pub async fn do_new(pool: PgPool, args: cli::JNEL) -> Result<Task> {
+pub async fn do_new(tx: &mut Transaction<'_, Postgres>, args: cli::JNEL) -> Result<Task> {
     let new_task = match &args.mode {
         cli::Mode::Do(cmd) => match &cmd {
             &cli::DoCmd::New { title, priority, due,recur, state, goal, tag} => {
@@ -20,12 +17,12 @@ pub async fn do_new(pool: PgPool, args: cli::JNEL) -> Result<Task> {
                     Some(d) => {
                         match (d.due_short.clone(), d.due_datetime.clone()){
                             (Some(shorthand), None) => { // Case 1: Passed shorthand is predefined
-                                let datetimes_lock = DATETIMES.lock().expect("Lock of cached Datetime shorthands poisoned X_X!");
+                                let datetimes_lock = DATETIMES.lock()?;
                                 if datetimes_lock.contains_key(&shorthand) {
                                     let dur_sec = match datetimes_lock.get(&shorthand){
-                                        Some(dur) => *dur,
-                                        None => 9223372036854775807,
-                                    };
+                                        Some(dur) => Ok(*dur),
+                                        None => Err(TaskError::InvalidDue(shorthand)),
+                                    }?;
                                     let now = Local::now().naive_local();
                                     let dt = now + Duration::seconds(dur_sec);
                                     Ok(Some(dt))
@@ -35,7 +32,7 @@ pub async fn do_new(pool: PgPool, args: cli::JNEL) -> Result<Task> {
                                 }
                             }
                             (None, Some(dt)) => { // Case 2: due was passed as DateTime
-                                let dt = NaiveDateTime::parse_from_str(&dt, "%Y-%m-%d %H-%M-%S")?;
+                                let dt = NaiveDateTime::parse_from_str(&dt, "%Y-%m-%d %H:%M:%S")?;
                                 Ok(Some(dt))
                             }
                             _ => Ok(None), // Case 3: Both was passed or neither, both is impossible as we make them a ArgGroup that cannot have multiples, So return None
@@ -59,44 +56,21 @@ pub async fn do_new(pool: PgPool, args: cli::JNEL) -> Result<Task> {
                     }
                 };
 
-                match state {
-                    Some(State::Pending) => {
-
-                    }
-                    Some(State::Doing) => {
-                        
-                    }
-                    Some(State::Paused) => {
-                        
-                    }
-                    Some(State::Done) => {
-                        
-                    }
-                    None => {
-
-                    }
-                };
-
                 // Convert parsed goal and tag data into Option<String>, insert new string to TAGS and GOALS if needed
                 let goal_opt = match goal{
                     Some(g) => {
                         match (g.goal.clone(), g.new_goal.clone()){
                             (Some(name), None) => { // Case 1: Passed goal is predefined
-                                let goals_lock = GOALS.lock().expect("Lock of cached goals poisoned X_X!");
-                                if goals_lock.contains_key(&name) {
-                                    Ok(Some(name))
+                                let goals_lock = GOALS.lock()?;
+                                if let Some(goal_id) = goals_lock.get(&name) {
+                                    Ok(Some(*goal_id))
                                 }
                                 else {
                                     Err(TaskError::InvalidGoal(name))
                                 }
                             }
                             (None, Some(new_goal)) => { // Case 2: Create a new goal
-
-                                sqlx::query!("INSERT INTO goals (goal_name) VALUES ($1)",new_goal);
-
-                                refresh_goals(&pool);
-
-                                Ok(Some(new_goal))
+                                goal_in(tx, new_goal).await
                             }
                             _ => Ok(None), // Case 3: Both was passed or neither, both is impossible as we make them a ArgGroup that cannot have multiples, So return None
                         }
@@ -107,21 +81,16 @@ pub async fn do_new(pool: PgPool, args: cli::JNEL) -> Result<Task> {
                     Some(t) => {
                         match (t.tag.clone(), t.new_tag.clone()){
                             (Some(name), None) => { // Case 1: Passed tag is predefined
-                                let tags_lock = TAGS.lock().expect("Lock of cached Tags poisoned X_X!");
-                                if tags_lock.contains_key(&name) {
-                                    Ok(Some(name))
+                                let tags_lock = TAGS.lock()?;
+                                if let Some(tag_id) = tags_lock.get(&name){
+                                    Ok(Some(*tag_id))
                                 }
                                 else {
-                                    Err(TaskError::InvalidGoal(name))
+                                    Err(TaskError::InvalidTag(name))
                                 }
                             }
                             (None, Some(new_tag)) => { // Case 2: Create a new tag
-                                
-                                sqlx::query!("INSERT INTO tags (tag_name) VALUES ($1)",new_tag);
-
-                                refresh_tags(&pool);
-
-                                Ok(Some(new_tag))
+                                tag_in(tx, new_tag).await
                             }
                             _ => Ok(None), // Case 3: Both was passed or neither, both is impossible as we make them a ArgGroup that cannot have multiples, So return None
                         }
@@ -139,7 +108,7 @@ pub async fn do_new(pool: PgPool, args: cli::JNEL) -> Result<Task> {
         _ => return Err(TaskError::WrongWay(String::from("Mode did not match Do, and we are in - fn do_new()")))
         
     };
-    let new_task = insert_task::in_task(pool, new_task).await;
+    let new_task = new_task::in_task(&mut *tx, new_task).await;
     new_task
     
     

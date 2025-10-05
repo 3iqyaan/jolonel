@@ -1,11 +1,10 @@
-use std::future::Pending;
-
 use chrono::{self, NaiveDate, NaiveDateTime, NaiveTime};
 use clap::{ValueEnum};
 use crate::errors::{Result};
 
+#[derive(Debug)]
 pub struct Task {
-    pub id: u32,
+    pub id: i32,
     pub title: String,
     pub priority: Priority,
     pub due_by: chrono::NaiveDateTime,
@@ -13,13 +12,13 @@ pub struct Task {
     pub at_time: chrono::NaiveTime,
     pub custom_recur: chrono::Duration,
     pub state: State,
-    pub goal: String,
-    pub tags: String,
+    pub goal: i32,
+    pub tag: i32,
 }
 
 pub struct TaskEvents{
-    pub id: u32,
-    pub task_id: u32,
+    pub id: i32,
+    pub task_id: i32,
     pub state: State,
     pub timestamp: chrono::NaiveDateTime,
 }
@@ -78,8 +77,8 @@ impl Task{
         at_time: Option<NaiveTime>,
         custom_recur: Option<chrono::Duration>,
         state: Option<State>,
-        goal: Option<String>,
-        tags: Option<String>,
+        goal: Option<i32>,
+        tag: Option<i32>,
     ) -> Result<Task> {
     Ok(Task {
         id: 0,
@@ -87,14 +86,14 @@ impl Task{
         priority: priority.unwrap_or(Priority::Low),
         due_by: due_by
             .unwrap_or(NaiveDateTime::new(
-                NaiveDate::from_ymd_opt(314159, 12, 31).unwrap(),
+                NaiveDate::from_ymd_opt(31415, 12, 31).unwrap(),
                 NaiveTime::from_hms_opt(23, 59, 59).unwrap())),
         recur: recur.unwrap_or(Recur::None),
         at_time: at_time.unwrap_or(NaiveTime::from_hms_opt(9, 00, 00).unwrap()),
-        custom_recur: custom_recur.unwrap_or(chrono::Duration::zero()),
+        custom_recur: custom_recur.unwrap_or(chrono::TimeDelta::zero()),
         state: state.unwrap_or(State::Pending),
         goal : goal.unwrap_or_default(),
-        tags : tags.unwrap_or_default(),
+        tag : tag.unwrap_or_default(),
         })
     }
 }

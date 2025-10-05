@@ -60,5 +60,5 @@ CREATE TABLE IF NOT EXISTS scheduled_task_tags (
 CREATE TABLE IF NOT EXISTS duration_shorthands (
     id          INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     shorthand   TEXT NOT NULL UNIQUE,
-    duration    INTEGER NOT NULL -- duration in seconds
+    duration    BIGINT NOT NULL -- duration in seconds
 );

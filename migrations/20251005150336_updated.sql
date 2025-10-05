@@ -1,0 +1,1 @@
+ALTER TABLE duration_shorthands ALTER COLUMN duration TYPE BIGINT;
