@@ -101,13 +101,13 @@ pub(crate) struct GoalArgs {
 }
 
 #[derive(Args, Debug, Clone)]
-#[group(required = false, multiple = false, args = ["tag", "new_tag"])]
+#[group(required = false, args = ["tag", "new_tag"])]
 pub(crate) struct TagArgs {
     #[arg(short, long)]
-    pub(crate) tag: Option<String>,
+    pub(crate) tag: Option<Vec<String>>,
 
     #[arg(short = 'T', long)]
-    pub(crate) new_tag: Option<String>,
+    pub(crate) new_tag: Option<Vec<String>>,
 }
 
 #[derive(Subcommand, Debug, Clone)]

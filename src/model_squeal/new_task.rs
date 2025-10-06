@@ -1,9 +1,9 @@
-use sqlx::{Postgres, QueryBuilder, Transaction};
+use sqlx::{Postgres, QueryBuilder, Transaction, Row};
 use crate::init::{refresh_goals, refresh_tags};
 use crate::models::{Recur, Task};
 use crate::errors::Result;
 
-pub async fn tag_in(tx: &mut Transaction<'_, Postgres>, new_tag: String) -> Result<Option<i32>>{
+pub async fn tag_in(txn: &mut Transaction<'_, Postgres>, new_tag: String) -> Result<i32>{
     let new_tag_id = sqlx::query_scalar(
         r#"
         INSERT INTO tags (tag_name)
@@ -14,14 +14,14 @@ pub async fn tag_in(tx: &mut Transaction<'_, Postgres>, new_tag: String) -> Resu
         "#
     )
     .bind(&new_tag)
-    .fetch_one(&mut **tx)
+    .fetch_one(&mut **txn)
     .await?;
 
-    refresh_tags(&mut *tx).await?;
-    Ok(Some(new_tag_id))
+    refresh_tags(&mut *txn).await?;
+    Ok(new_tag_id)
 }
 
-pub async fn goal_in(tx: &mut Transaction<'_, Postgres>, new_goal: String) -> Result<Option<i32>>{
+pub async fn goal_in(txn: &mut Transaction<'_, Postgres>, new_goal: String) -> Result<i32>{
     let new_goal_id = sqlx::query_scalar(
         r#"
         INSERT INTO goals (goal_name)
@@ -32,13 +32,13 @@ pub async fn goal_in(tx: &mut Transaction<'_, Postgres>, new_goal: String) -> Re
         "#
     )
     .bind(&new_goal)
-    .fetch_one(&mut **tx)
+    .fetch_one(&mut **txn)
     .await?;
-    refresh_goals(&mut *tx).await?;
-    Ok(Some(new_goal_id))
+    refresh_goals(&mut *txn).await?;
+    Ok(new_goal_id)
 }
 
-pub async fn in_task(tx: &mut Transaction<'_, Postgres>, res_task: Result<Task>) -> Result<Task>{
+pub async fn in_task(txn: &mut Transaction<'_, Postgres>, res_task: Result<Task>) -> Result<Task>{
 
     let task = res_task?;
 
@@ -56,16 +56,6 @@ pub async fn in_task(tx: &mut Transaction<'_, Postgres>, res_task: Result<Task>)
         _ => true
     };
 
-    let does_recur = if !does_recur {
-        if chrono::TimeDelta::is_zero(&task.custom_recur){
-            false
-        }
-        else {true}
-    
-    }   
-    else{
-        true
-    };
     qb.push_bind(does_recur); qb.push(", ");
 
 
@@ -74,7 +64,17 @@ pub async fn in_task(tx: &mut Transaction<'_, Postgres>, res_task: Result<Task>)
 
     qb.push_bind(task.goal); qb.push(")");
     
-    qb.build().execute(&mut **tx).await?; 
+    qb.push(" RETURNING id");
+    
+    let task_id_row = qb.build().fetch_one(&mut **txn).await?; 
+    let new_id: i32 = task_id_row.try_get("id")?;
+    task.id = new_id;
 
     Ok(task)
+}
+
+pub async fn in_task_tag(txn: &mut Transaction<'_, Postgres>, tag_ids: Vec<i32>) {
+    for id in tag_ids{
+
+    }
 }
