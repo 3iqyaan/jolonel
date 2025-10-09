@@ -1,6 +1,8 @@
-use std::{io};
+use std::{io, sync::mpsc::SendError};
 use chrono;
 use thiserror::Error;
+use tokio::task::JoinError;
+use tokio::sync::mpsc::error;
 
 #[derive(Debug, Error)]
 pub enum TaskError{
@@ -26,6 +28,9 @@ pub enum TaskError{
     #[error("Failed to read from file")]
     FileParseFailed(#[from] io::Error),
 
+    #[error("Did not recieve handle")]
+    JoinError(#[from] JoinError),
+
     #[error("Goal is not predefined: {0}")]
     InvalidGoal(String),
 
@@ -42,7 +47,7 @@ pub enum TaskError{
     Disparity(String),
 
     #[error("Dont know what caused this")]
-    Mysterious
+    Mysterious(String)
 }
 
 impl<T> From<std::sync::PoisonError<T>> for TaskError {

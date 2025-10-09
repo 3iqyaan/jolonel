@@ -3,7 +3,7 @@ use clap::{Args, Parser, Subcommand};
 use crate::models::{Recur, Priority, State};
 
 #[derive(Parser, Debug, Clone)]
-#[command(name = "Jolonel", version = "1.0", author = "3iqyaan", about = "Use me to track your progress on your Goals",
+#[command(name = "Jolonel", version = "1.0", author = "Muhammad", about = "Use me to track your progress on your Goals",
 long_about = "I am Jolonel, a simple program made to track your progress easier, and keep you accountable. To get a brief how-to, run --docs")]
 pub(crate) struct JNEL{
     #[command(subcommand)]

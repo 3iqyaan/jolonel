@@ -1,6 +1,6 @@
 -- Add migration script here
 
-CREATE TYPE task_state AS ENUM ('Pending', 'Doing', 'Paused', 'Completed');
+CREATE TYPE task_state AS ENUM ('Scheduled', 'Pending', 'Doing', 'Paused', 'Completed');
 CREATE TYPE priority_level AS ENUM ('Low', 'Medium', 'High');
 
 
@@ -17,11 +17,11 @@ CREATE TABLE IF NOT EXISTS goals (
 CREATE TABLE IF NOT EXISTS tasks (
     id            INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     title         TEXT NOT NULL,
-    priority      priority_level NOT NULL,
+    priority      priority_level NOT NULL DEFAULT 'Low',
     due_by        TIMESTAMPTZ,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     does_recur    BOOLEAN NOT NULL DEFAULT FALSE,
-    state         task_state NOT NULL,
+    state         task_state NOT NULL DEFAULT 'Pending',
     goal_id       INTEGER REFERENCES goals(id) ON DELETE SET NULL
 );
     

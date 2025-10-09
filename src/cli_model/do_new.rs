@@ -1,28 +1,31 @@
 use crate::cli::{DueArgs, GoalArgs, TagArgs};
-use crate::model_squeal::new_task::{goal_in, tag_in};
+use crate::model_squeal::new_task::{goal_in, in_task, in_task_tag, init_task, tags_in};
 use crate::models::{Priority, Recur, Task};
 use crate::errors::{Result, TaskError};
-use crate::{cli, DEFAULT_DUE, GOALS, TAGS};
-use chrono::{Duration, Local, NaiveDateTime, NaiveTime};
+use crate::{cli, retrieve_values, DEFAULT_DUE, DEFAULT_TIME, GOALS, TAGS};
+use chrono::{Duration, Local, NaiveDateTime};
 use sqlx::{Postgres, Transaction};
 use crate::DATETIMES;
 
 impl Task{
-    pub async fn do_new(txn: &mut Transaction<'_, Postgres>, cmd: cli::DoCmd) -> Result<Task> {
+    pub async fn do_new(txn: &mut Transaction<'_, Postgres>, cmd: cli::DoCmd) -> Result<Task> { // Convert the cli parsed structs into squealable stuff
         match cmd {
             cli::DoCmd::New { title, priority, due,recur, state, goal, tag} => {
                 let new_task = Task{
-                    id: 0,
+                    id: init_task(txn, &title).await?,
                     title: title,
                     priority: priority.unwrap_or(Priority::Low),
                     due_by: resolve_due_datetime(due).await?,
-                    recur: recur.unwrap_or(cli::Recurrence{ recur: Some(Recur::None), at_time: Some(NaiveTime::from_hms_opt(9, 00, 00)).unwrap()}).recur.unwrap_or(Recur::None),
-                    at_time: recur.unwrap_or(cli::Recurrence{ recur: Some(Recur::None), at_time: Some(NaiveTime::from_hms_opt(9, 00, 00)).unwrap()}).at_time.unwrap_or(NaiveTime::from_hms_opt(9, 00, 00).unwrap()),
+                    recur: recur.unwrap_or(cli::Recurrence{ recur: Some(Recur::None), at_time: Some(DEFAULT_TIME)}).recur.unwrap_or(Recur::None),
+                    at_time: recur.unwrap_or(cli::Recurrence{ recur: Some(Recur::None), at_time: Some(DEFAULT_TIME)}).at_time.unwrap_or(DEFAULT_TIME),
                     state: state.unwrap_or(crate::models::State::Pending),
                     goal: resolve_goal_id(txn, goal).await?,
-                    tag: resolve_tag_ids(txn, tag).await?
+                    tag: resolve_tag_ids(txn, tag).await?,
+                    
                 };
-                Ok(new_task)
+                in_task_tag(txn, &new_task.tag, &new_task.id).await?;
+                in_task(txn, Ok(new_task)).await
+                
             }
         }
     }         
@@ -42,25 +45,18 @@ pub async fn resolve_tag_ids(txn:&mut Transaction<'_, Postgres>, tags: Option<Ta
                 crate::errors::Result::Ok(tag_ids)
             }
             (None, Some(new_tags)) => { // Case 2: Create new tags
-                let mut tag_ids = Vec::new();
-                for new_tag in new_tags{
-                    tag_ids.push(tag_in(txn, new_tag).await?)
-                }
-                Ok(tag_ids)
+                let tag_ids = tags_in(txn, new_tags).await;
+                tag_ids
             }
             (Some(tags), Some(new_tags)) => { // Case 3: Both was passed
-                let mut tag_ids = Vec::new();
-                for new_tag in new_tags{
-                    tag_ids.push(tag_in(txn, new_tag).await?)
-                }
+                
+                let mut tag_ids = tags_in(txn, new_tags).await?;
+
                 let tag_lock = TAGS.lock().unwrap();
-                for tag in tags{
-                    if let Some(id) = tag_lock.get(&tag){
-                        tag_ids.push(*id);
-                    }
-                }
+                let tag_ids_frmhash: Vec<i32> = retrieve_values(&tag_lock, &tags).into_iter().copied().collect();
+                tag_ids.extend(tag_ids_frmhash);
                 Ok(tag_ids)
-            } 
+            }
             (None, None) => Ok(vec![0])
         },
         None => Ok(vec![0]) // Case 4: No args were passed into the TagArgs
