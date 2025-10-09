@@ -8,4 +8,4 @@ There are three modes of operation:
 2. **View** - To View tasks Filtered, Sorted, Graphed, and thereby the progress Analyzed and learned from.
 3. **Change** - To *Create, Edit, and Delete* Tags, Goals, Schedules, Recurring Tasks, and Priority levels for tags and goals. 
 ---
-To be continued...
+Any suggestions are welcome, and would be helpful. I am just starting out.
