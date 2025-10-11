@@ -1,0 +1,14 @@
+[package]
+name = "jnel"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = "0.4.42"
+clap = { version = "4.5.48", features = ["derive"] }
+dotenv = "0.15.0"
+lazy_static = "1.5.0"
+once_cell = "1.21.3"
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres"] }
+thiserror = "2.0.16"
+tokio = { version = "1.47.1", features = ["full"] }

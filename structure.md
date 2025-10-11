@@ -1,0 +1,19 @@
+- migrations
+- src
+    \___ main.rs
+    \___ models.rs
+    \___ errors.rs
+    \___ cli.rs
+    \___ squeal/
+            \___ helpers/
+                    \___ main.rs
+                    \___ tag_helper.rs  
+                    \___ goal_helper.rs
+                    \___ log_helper.rs
+                    \___ mod.rs
+            \___ recur_helpers/
+                    \___ scheduler.rs
+                    \___ tag_helper.rs
+                    \___ goal_helper.rs
+                    \___ log_helper.rs
+                    \___ mod.rs
