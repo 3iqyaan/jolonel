@@ -1,7 +1,7 @@
 use std::{io};
 use chrono;
 use thiserror::Error;
-use tokio::task::JoinError;
+use tokio::{sync::broadcast, task::JoinError};
 
 #[derive(Debug, Error)]
 pub enum TaskError{
@@ -29,6 +29,9 @@ pub enum TaskError{
 
     #[error("Did not recieve handle")]
     JoinError(#[from] JoinError),
+
+    #[error("Couldn't broadcast some value")]
+    SendError(#[from] broadcast::error::SendError<()>),
 
     #[error("Goal is not predefined: {0}")]
     InvalidGoal(String),

@@ -1,16 +1,47 @@
-use chrono::{DateTime, Utc};
 use sqlx::PgPool;
-use tokio::sync::mpsc;
-use crate::{errors::Result};
+use tokio::sync::{mpsc, broadcast};
+use crate::errors::{Result};
+use crate::core::lib::Msg;
 
 /// Behaves differently based on the message.
 /// Currently, accepts messages from goal_helper, tag_helper, due_helper, and events_helper.
-pub async fn main(pool: PgPool, mut rx: mpsc::Receiver<Msg>) -> Result<()>{
-    while let Some(msg) = rx.recv().await{
-        println!("assemble started");
-        match msg{
+pub async fn main(pool: PgPool, mut rx: mpsc::Receiver<Msg>, mut shutdown_rx: broadcast::Receiver<()>) -> Result<()>{
+    let mut results = vec![];
+
+    loop{
+        let pool_ = pool.clone();
+        tokio::select! {
+            Some(msg) = rx.recv() => {
+                println!("assembler got a msg, crunching thru ...");
+                results.push(msg.process(pool_).await);
+            }
+            _ = shutdown_rx.recv() => {
+                println!("assembler was asked to shutdown");
+                while let Some(msg) = rx.recv().await {
+                    println!("finishing pending work ...");
+                    let pool_1 = pool_.clone();
+                    results.push(msg.process(pool_1).await);
+                }
+                rx.close();
+                break;
+            }
+        }
+    }
+    let mut ok = true;
+    for result in results{
+        if let Err(_e) = result {
+            ok = false;
+        }
+    }
+    if ok {Ok(())}
+    else{Err(crate::errors::TaskError::Mysterious("assembler couldnt process massages without panicking :(".into()))}
+}
+
+impl Msg{
+    pub async fn process(&self, pool: PgPool) -> Result<()>{
+        match &self{
             Msg::Goal { task_id, goal_id } => {
-                if goal_id != 0 {
+                if *goal_id != 0 {
                     sqlx::query(
                         r#"
                         UPDATE tasks
@@ -21,6 +52,10 @@ pub async fn main(pool: PgPool, mut rx: mpsc::Receiver<Msg>) -> Result<()>{
                     .bind(task_id)
                     .execute(&pool)
                     .await?;
+                    Ok(())
+                }
+                else {
+                    Ok(())
                 }
             }
             Msg::Tag { task_id, tag_ids } => {
@@ -36,6 +71,10 @@ pub async fn main(pool: PgPool, mut rx: mpsc::Receiver<Msg>) -> Result<()>{
                     .bind(tag_ids)
                     .execute(&pool)
                     .await?;
+                    Ok(())
+                }
+                else{
+                    Ok(())
                 }
                 
             }
@@ -50,6 +89,7 @@ pub async fn main(pool: PgPool, mut rx: mpsc::Receiver<Msg>) -> Result<()>{
                 .bind(task_id)
                 .execute(&pool)
                 .await?;
+                Ok(())
             }
             Msg::State { task_id, state } => {
                 sqlx::query(r#"
@@ -61,6 +101,7 @@ pub async fn main(pool: PgPool, mut rx: mpsc::Receiver<Msg>) -> Result<()>{
                 .bind(task_id)
                 .execute(&pool)
                 .await?;
+                Ok(())
             }
             Msg::Priority { task_id, priority } => {
                 sqlx::query(
@@ -73,20 +114,8 @@ pub async fn main(pool: PgPool, mut rx: mpsc::Receiver<Msg>) -> Result<()>{
                 .bind(task_id)
                 .execute(&pool)
                 .await?;
-            }
-            Msg::Clockout => {
-                rx.close();
+                Ok(())
             }
         }
     }
-    Ok(())
-}
-
-pub enum Msg{
-    Goal{ task_id: i32, goal_id: i32},
-    Tag{ task_id: i32, tag_ids: Vec<i32>},
-    Due{ task_id: i32, parsed_due: DateTime<Utc>},
-    State{ task_id: i32, state: String},
-    Priority{ task_id: i32, priority: String},
-    Clockout
 }

@@ -35,13 +35,13 @@ pub(crate) enum Mode {
 
 #[derive(Subcommand, Debug, Clone)]
 pub(crate) enum DoCmd {
-    /// Create a new task
+    /// Create a new task.
     New {
         title: String,
 
         #[arg(short, long)]
         priority: Option<Priority>,
-
+        
         #[command(flatten)]
         due: Option<DueArgs>,
         
@@ -69,17 +69,20 @@ pub(crate) enum DoCmd {
 
 #[derive(Debug, Clone, Copy, Args)]
 pub struct Recurrence{
+    #[arg(short, long)]
     pub recur: Option<Recur>,
+
+    #[arg(short = 'A', long)]
     pub at_time: Option<chrono::NaiveTime>
 }
 
 #[derive(Args, Debug, Clone, PartialEq, Eq)]
 #[group(required = false, multiple = false, args = ["due_short", "due_datetime"])]
 pub(crate) struct DueArgs {
-
+    /// Use the predefined shorthands
     #[arg(short, long)]
     pub(crate) due_short: Option<String>,
-
+    /// Type the due datetime in the format "YYYY-MM-DD HH:MM:SS" (in double quotes)
     #[arg(short = 'D', long)]
     pub(crate) due_datetime: Option<String>,
 }
